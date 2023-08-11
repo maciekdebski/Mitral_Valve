@@ -98,8 +98,8 @@ Data <- S_Data %>%
     Cardioplegia_infusionmode = factor(`Cardioplegia - Infusion mode`),
     Cardioplegia_soluiton = factor(`Cardioplegia - solution`),
     Cardioplegia_temperature = factor(`Cardioplegia - Temperature`),
-    Cardioplegia_timing = factor(`Cardioplegia - Timing`),
-    Cardiopulmonary_bypass = factor(`Cardiopulmonary bypass`),
+    #Cardioplegia_timing = factor(`Cardioplegia - Timing`),
+    #Cardiopulmonary_bypass = factor(`Cardiopulmonary bypass`),
     Cause_of_Death = factor(`Cause of Death`),
     Cell_Salvage = as.numeric(`Cell Salvage`),
     CreatinineGT200 = factor(`Creatinine &gt;200, no dialysis`),
@@ -329,8 +329,9 @@ Data_PS <- df.match_All
 
 UV_T <- gtsummary::tbl_uvregression(Data_PS,
                  method = survival::coxph,
-                 method.args = list(weights = weights),
+               #  method.args = list(weights = weights),
                  y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
+                 tidy_fun = broom.helpers::tidy_parameters,
                  exponentiate = T,
                  include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
   modify_header(label = paste0("Mortality (Weighted_Univariate)")) %>%
