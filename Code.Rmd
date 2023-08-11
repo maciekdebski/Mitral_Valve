@@ -111,8 +111,6 @@ Data <- S_Data %>%
     Discharge_Destination = factor(`Discharge destination from cardiothoracic ward`),
     Ventilation_Duration = factor(`Duration of Ventilation`),
     FFP = as.numeric(FFP),
-    GI_Complications = factor(case_when(is.na(`GI complications`) ~ 0,
-                                 TRUE ~ 1), levels = 0:1, labels = c("No", "Yes")),
     HDU_Stay = as.numeric(`HDU Stay`),
     ICU_Stay = as.numeric(`ICU Stay`),
     InotropesIntraOp = factor(`Inotropes Used`),
@@ -235,11 +233,18 @@ theme_gtsummary_compact()
 Data_woDate <- Data %>%
   select(-where(~ is.Date(.x) | is.POSIXt(.x)), -DateTime_LastCatheter)
 
+tbl1a <- tbl_summary(Data_woDate, by = "MitralValveProcedure_RepaPepl") %>%
+  add_difference(everything() ~ "smd")
+
 tbl1 <- tbl_summary(Data_woDate, by = "MitralValveProcedure_RepaPepl") %>%
   add_difference(everything() ~ "smd") %>%
   as_gt()
 
 gt::gtsave(tbl1, "Tables/TableOne_SMD.html")
+
+tbl2a <- tbl_summary(Data_woDate, by = "MitralValveProcedure_RepaPepl") %>%
+  add_p() %>%
+  bold_p()
 
 tbl2 <- tbl_summary(Data_woDate, by = "MitralValveProcedure_RepaPepl") %>%
   add_p() %>%
@@ -265,7 +270,7 @@ set.seed(1234)
 
 library(MatchIt)
 
-match.it <- matchit(MitralValveProcedure_RepaPepl ~ Age + Gender + BMI + PMHx_HTN+ Diabetes_col+ NYHA34_12+ PrevPCI_col+ CardiacSurgery_col+ PMHx_PulmonaryDx+ Smoking_Stat+ PMHx_CVATIA+ Canadian_Score4+ Critical_Preop+ PulmonHTN_bin+ AF+ LMS_Dx+ Extent_of_CorVessDx+ Extracardiac_Arteriopathy+ Recent_MI+ LVEF_Cat+ Op_Urgency_col+ CreatinineGT200+ CABG+ Tricuspid_Procedure_Bin+ NativeMitralPathology, data = Data_PS_Mort,  method = "genetic", replace = T, caliper = 0.2, pop.size = 100)
+match.it <- matchit(MitralValveProcedure_RepaPepl ~ Age + Gender + BMI + PMHx_HTN+ Diabetes_col+ NYHA34_12+ PrevPCI_col+ CardiacSurgery_col+ PMHx_PulmonaryDx+ Smoking_Stat+ PMHx_CVATIA+ Canadian_Score4+ Critical_Preop+ PulmonHTN_bin+ AF+ LMS_Dx+ Extent_of_CorVessDx+ Extracardiac_Arteriopathy+ Recent_MI+ LVEF_Cat+ Op_Urgency_col+ CreatinineGT200+ CABG+ Tricuspid_Procedure_Bin+ NativeMitralPathology, data = Data_PS_Mort,  method = "genetic", replace = T, caliper = 0.2, pop.size = 100, ratio = 2)
 a <- summary(match.it)
 
 #create new dataframe without unmatched
@@ -282,11 +287,20 @@ theme_gtsummary_journal(journal = "jama")
 theme_gtsummary_compact()
 #> Setting theme `Compact
 
+tbl1b <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl") %>%
+  add_difference(everything() ~ "smd") %>%
+  modify_column_hide(p.value)
+
 tbl1 <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl") %>%
   add_difference(everything() ~ "smd") %>%
+  modify_column_hide(p.value) %>%
   as_gt()
 
 gt::gtsave(tbl1, "Tables/TableOne_SMD_PS.html")
+
+tbl2b <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl") %>%
+  add_p() %>%
+  bold_p()
 
 tbl2 <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl") %>%
   add_p() %>%
@@ -295,3 +309,46 @@ tbl2 <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl")
 
 gt::gtsave(tbl2, "Tables/TableOne_p_PS.html")
 ```
+
+```{r Merging both tables}
+
+Tbl1 <- tbl_merge(tbls = list(tbl1a, tbl1b),
+          tab_spanner = c("**All Patients**", "**Propensity Matched**")) %>% as_gt()
+
+Tbl2 <- tbl_merge(tbls = list(tbl2a, tbl2b),
+          tab_spanner = c("**All Patients**", "**Propensity Matched**")) %>% as_gt()
+
+gt::gtsave(Tbl1, "Tables/TableOne_Combined_SMD.html")
+gt::gtsave(Tbl2, "Tables/TableOne_Combined_P.html")
+```
+
+```{r CoxRegression UV Weighted}
+UniLevel <- map(df.match_All, ~nlevels(.x)) %>% as.data.frame() %>% t %>% as.data.frame() %>% filter(V1==1) %>% rownames() %>% dput() 
+
+Data_PS <- df.match_All
+
+UV_T <- gtsummary::tbl_uvregression(Data_PS,
+                 method = survival::coxph,
+                 method.args = list(weights = weights),
+                 y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
+                 exponentiate = T,
+                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
+  modify_header(label = paste0("Mortality (Weighted_Univariate)")) %>%
+  bold_p() %>%
+  as_gt()
+
+gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV.html"))
+```
+
+```{r KM Curve (weighted)}
+fit1<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS, weights = weights)
+plot1 <- ggsurvplot(fit1, pval = TRUE, conf.int = TRUE,
+           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", legend.labs = c("Repair", "Replacement"), xlab = "Years Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
+
+cairo_pdf(filename = "KM_Weighted/KM_Weighted.pdf",
+         width = 6.2, height = 6, onefile = T)
+print(plot1, newpage = F)
+dev.off()
+
+```
+
