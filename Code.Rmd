@@ -367,12 +367,40 @@ plot4 <- ggsurvplot(fit4, pval = TRUE, conf.int = TRUE,
            legend.labs = c("Degenerative", "Functional", "Ischaemic"), 
            xlab = "Years Since Index Procedure", ylab = "Survival Probability (Replacement)", palette = c("#fba30c", "#0077b8", "#038271"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
 
+Data_PS_Degen <- Data_PS %>% filter(NativeMitralPathology == "Degenerative")
+
+Data_PS_Ischae <- Data_PS %>% filter(NativeMitralPathology == "Ischaemic")
+
+Data_PS_Funct <- Data_PS %>% filter(NativeMitralPathology == "Functional regurgitation")
+
+fit5<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Degen, weights = weights)
+plot5 <- ggsurvplot(fit5, pval = TRUE, conf.int = TRUE,
+           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
+           legend.labs = c("Repair", "Replacement"), 
+           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Degenerative)", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
+
+fit6 <- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Ischae, weights = weights)
+plot6 <- ggsurvplot(fit6, pval = TRUE, conf.int = TRUE,
+           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
+           legend.labs = c("Repair", "Replacement"), 
+           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Ischaemic)", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
+
+fit7<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Funct, weights = weights)
+plot7 <- ggsurvplot(fit7, pval = TRUE, conf.int = TRUE,
+           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
+           legend.labs = c("Repair", "Replacement"), 
+           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Functional)", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
+
+
 cairo_pdf(filename = "KM_Weighted/KM_Weighted.pdf",
          width = 6.2, height = 6, onefile = T)
 print(plot1, newpage = F)
 print(plot2)
 print(plot3)
 print(plot4)
+print(plot5)
+print(plot6)
+print(plot7)
 dev.off()
 
 ```
