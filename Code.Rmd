@@ -270,7 +270,7 @@ set.seed(1234)
 
 library(MatchIt)
 
-match.it <- matchit(MitralValveProcedure_RepaPepl ~ Age + Gender + BMI + PMHx_HTN+ Diabetes_col+ NYHA34_12+ PrevPCI_col+ CardiacSurgery_col+ PMHx_PulmonaryDx+ Smoking_Stat+ PMHx_CVATIA+ Canadian_Score4+ Critical_Preop+ PulmonHTN_bin+ AF+ LMS_Dx+ Extent_of_CorVessDx+ Extracardiac_Arteriopathy+ Recent_MI+ LVEF_Cat+ Op_Urgency_col+ CreatinineGT200+ CABG+ Tricuspid_Procedure_Bin+ NativeMitralPathology, data = Data_PS_Mort,  method = "genetic", replace = T, caliper = 0.2, pop.size = 100, ratio = 2)
+match.it <- matchit(MitralValveProcedure_RepaPepl ~ Age + Gender + BMI + PMHx_HTN+ Diabetes_col+ NYHA34_12+ PrevPCI_col+ CardiacSurgery_col+ PMHx_PulmonaryDx+ Smoking_Stat+ PMHx_CVATIA+ Canadian_Score4+ Critical_Preop+ PulmonHTN_bin+ AF+ LMS_Dx+ Extent_of_CorVessDx+ Extracardiac_Arteriopathy+ Recent_MI+ LVEF_Cat+ Op_Urgency_col+ CreatinineGT200+ CABG+ Tricuspid_Procedure_Bin+ NativeMitralPathology, data = Data_PS_Mort,  method = "genetic", replace = T, caliper = 0.2, pop.size = 100, ratio = 1)
 a <- summary(match.it)
 
 #create new dataframe without unmatched
