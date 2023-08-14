@@ -167,6 +167,12 @@ Data <- S_Data %>%
     Mortality_FU = as.numeric(difftime(FU_Dates, DateTime_Op, units = "days")),
     Mortality_FU = case_when(Mortality_FU < 1 ~ 0.5,
                              TRUE ~ Mortality_FU),
+    Mortality_FU90 = pmin(Mortality_FU, 90),
+    Mortality_90 = case_when(Mortality_FU90 < 90 & Dead == "Yes" ~ 1,
+                                      TRUE ~ 0),
+    Mortality_FU30 = pmin(Mortality_FU, 30),
+    Mortality_30 = case_when(Mortality_FU30 < 30 & Dead == "Yes" ~ 1,
+                                      TRUE ~ 0),
     PMHx_CVATIA = factor(CVA_TIA),
     Canadian_Score4 = factor(CCS4),
     NYHA34_12 = factor(NYHA_3_4_vs_1_2),
@@ -191,8 +197,11 @@ Data <- Data %>%
          NativeMitralPathology == "Ischaemic"|
          NativeMitralPathology == "Active infective endocarditis"|
          NativeMitralPathology == "Rheumatic"|
+         NativeMitralPathology == "Unknown"|
          NativeMitralPathology == "Congenital") %>%
-  filter(MitralValvePathology == "Regurgitation")
+  filter(MitralValvePathology == "Regurgitation") %>%
+  mutate(NativeMitralPathology = recode_factor(NativeMitralPathology, Unknown = NA_character_))
+
 
 ```
 
@@ -219,6 +228,7 @@ imp.dataset <- complete(imp.data, 2)
 #Only using the imputed columns that were of interest
 Data <- Data %>%
   mutate(
+    NativeMitralPathology = imp.dataset$NativeMitralPathology,
     Diabetes_Mx = imp.dataset$Diabetes_Mx,
     PMHx_HTN = imp.dataset$PMHx_HTN,
     PMHx_PulmonaryDx = imp.dataset$PMHx_PulmonaryDx,
@@ -312,7 +322,7 @@ tbl1 <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl")
 
 gt::gtsave(tbl1, "Tables/TableOne_SMD_PS.html")
 
-tbl2b <- tbl_summary(Data_PS_Repair[,-(1:2)], by = "Minimitral") %>%
+tbl2b <- tbl_summary(df.match_All[,-(1:2)], by = "Minimitral") %>%
   add_p() %>%
   bold_p()
 
@@ -344,7 +354,7 @@ Data_PS <- df.match_All
 UV_T <- gtsummary::tbl_uvregression(Data_PS,
                  method = survival::coxph,
                #  method.args = list(weights = weights),
-                 y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
+                 y = survival::Surv(time = Mortality_FU90, event = as.numeric(Dead)),
                  tidy_fun = broom.helpers::tidy_parameters,
                  exponentiate = T,
                  include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
@@ -355,7 +365,7 @@ UV_T <- gtsummary::tbl_uvregression(Data_PS,
 gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV.html"))
 ```
 
-```{r CoxRegression UV Mortality}
+```{r CoxRegression UV Mortality 90}
 UniLevel <- map(df.match_All, ~nlevels(.x)) %>% as.data.frame() %>% t %>% as.data.frame() %>% filter(V1==1) %>% rownames() %>% dput() 
 
 Data_PS <- df.match_All
@@ -371,27 +381,64 @@ UV_T <- gtsummary::tbl_uvregression(Data_PS,
   bold_p() %>%
   as_gt()
 
-gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV.html"))
+gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV90.html"))
+```
+
+```{r CoxRegression UV Mortality 30}
+UniLevel <- map(df.match_All, ~nlevels(.x)) %>% as.data.frame() %>% t %>% as.data.frame() %>% filter(V1==1) %>% rownames() %>% dput() 
+
+Data_PS <- df.match_All
+
+UV_T <- gtsummary::tbl_uvregression(Data_PS,
+                 method = survival::coxph,
+               #  method.args = list(weights = weights),
+                 y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
+                 tidy_fun = broom.helpers::tidy_parameters,
+                 exponentiate = T,
+                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
+  modify_header(label = paste0("Mortality (Weighted_Univariate)")) %>%
+  bold_p() %>%
+  as_gt()
+
+gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV30.html"))
 ```
 
 
-
 ```{r KM Curve (weighted)}
-fit1<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Nini, weights = weights)
+library(survival)
+library(survminer)
+
+fit1<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS, weights = weights)
 plot1 <- ggsurvplot(fit1, pval = TRUE, conf.int = TRUE,
            risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", legend.labs = c("Repair", "Replacement"), xlab = "Years Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
-
-fit2<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ NativeMitralPathology, data = Data_PS, weights = weights)
-plot2 <- ggsurvplot(fit2, pval = TRUE, conf.int = TRUE,
-           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
-           legend.labs = c("Degenerative", "Functional", "Ischaemic"), 
-           xlab = "Years Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8", "#038271"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
 
 cairo_pdf(filename = "KM_Weighted/KM_Weighted.pdf",
          width = 6.2, height = 6, onefile = T)
 print(plot1, newpage = F)
-print(plot2)
 dev.off()
 
 ```
 
+```{r KM Curve (90)}
+fit1<- survfit(Surv(time = Mortality_FU90, event = as.numeric(Mortality_90)) ~ MitralValveProcedure_RepaPepl, data = Data_PS, weights = weights)
+plot1 <- ggsurvplot(fit1, pval = TRUE, conf.int = TRUE,
+           risk.table = T, risk.table.y.text.col = TRUE, legend.labs = c("Repair", "Replacement"), xlab = "Days Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 30, pval.coord = c(0,0.9), legend.title = "", ylim=c(0.85, 1))
+
+cairo_pdf(filename = "KM_Weighted/KM_Weighted90.pdf",
+         width = 6.2, height = 6, onefile = T)
+print(plot1, newpage = F)
+dev.off()
+
+```
+
+```{r KM Curve (30)}
+fit1<- survfit(Surv(time = Mortality_FU30, event = as.numeric(Mortality_30)) ~ MitralValveProcedure_RepaPepl, data = Data_PS, weights = weights)
+plot1 <- ggsurvplot(fit1, pval = TRUE, conf.int = TRUE,
+           risk.table = T, risk.table.y.text.col = TRUE, legend.labs = c("Repair", "Replacement"), xlab = "Days Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8"), theme = "lancet", pval.coord = c(0,0.925), legend.title = "", break.time.by	= 5, ylim=c(0.9, 1))
+
+cairo_pdf(filename = "KM_Weighted/KM_Weighted30.pdf",
+         width = 6.2, height = 6, onefile = T)
+print(plot1, newpage = F)
+dev.off()
+
+```
