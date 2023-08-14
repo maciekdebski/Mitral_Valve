@@ -186,9 +186,12 @@ Data <- S_Data %>%
 ```{r Removing patients from dataset}
 
 Data <- Data %>% 
-  filter(NativeMitralPathology == "Degenerative" |
+  filter(NativeMitralPathology == "Degenerative" | 
          NativeMitralPathology == "Functional regurgitation"|
-         NativeMitralPathology == "Ischaemic") %>%
+         NativeMitralPathology == "Ischaemic"|
+         NativeMitralPathology == "Active infective endocarditis"|
+         NativeMitralPathology == "Rheumatic"|
+         NativeMitralPathology == "Congenital") %>%
   filter(MitralValvePathology == "Regurgitation")
 
 ```
@@ -220,7 +223,18 @@ Data <- Data %>%
     PMHx_HTN = imp.dataset$PMHx_HTN,
     PMHx_PulmonaryDx = imp.dataset$PMHx_PulmonaryDx,
     PMHx_CVATIA = imp.dataset$PMHx_CVATIA,
-    PrevPCI_col = imp.dataset$PrevPCI_col
+    PrevPCI_col = imp.dataset$PrevPCI_col,
+    BloodLoss = imp.dataset$BloodLoss,
+    BloodUsed = imp.dataset$BloodUsed,
+    CumulativeBypassTime = imp.dataset$CumulativeBypassTime,
+    CumulativeCrossClampTime = imp.dataset$CumulativeCrossClampTime,
+    Ventilation_Duration = imp.dataset$Ventilation_Duration,
+    FFP = imp.dataset$FFP,
+    GIComplicat = imp.dataset$GIComplicat,
+    ICU_Stay = imp.dataset$ICU_Stay,
+    IntraOp_IntrafiltrationDialysis = imp.dataset$IntraOp_IntrafiltrationDialysis,
+    Platelets = imp.dataset$Platelets,
+    MultiSystemOrganFailure = imp.dataset$MultiSystemOrganFailure
   )
 ```
 
@@ -262,7 +276,7 @@ dev.off()
 
 ```{r Propensity Score Matching}
 Data_PS_Mort <- Data %>%
-  drop_na(MitralValveProcedure_RepaPepl, Age , Gender , BMI , PMHx_HTN, Diabetes_col, NYHA34_12, PrevPCI_col, CardiacSurgery_col, PMHx_PulmonaryDx, Smoking_Stat, PMHx_CVATIA, Canadian_Score4, Critical_Preop, PulmonHTN_bin, AF, LMS_Dx, Extent_of_CorVessDx, Extracardiac_Arteriopathy, Recent_MI, LVEF_Cat, Op_Urgency_col, CreatinineGT200, CABG, Tricuspid_Procedure_Bin, NativeMitralPathology) %>%
+  drop_na(MitralValveProcedure_RepaPepl, Age , Gender , BMI , PMHx_HTN, Diabetes_col, Dyspnoea_Status, PrevPCI_col, CardiacSurgery_col, PMHx_PulmonaryDx, Smoking_Stat, PMHx_CVATIA, Canadian_Score4, Critical_Preop, PulmonHTN_bin, AF, LMS_Dx, Extent_of_CorVessDx, Extracardiac_Arteriopathy, Recent_MI, LVEF_Cat, Op_Urgency_col, CreatinineGT200, CABG, Tricuspid_Procedure_Bin, NativeMitralPathology, Logistic_EUROScore, AF_Ablation, LAA_Closure, Minimitral) %>%
   mutate(NativeMitralPathology = fct_drop(NativeMitralPathology))
 # Had to drop MitralValvePathology as they were all Regurgitation.
 
@@ -270,7 +284,7 @@ set.seed(1234)
 
 library(MatchIt)
 
-match.it <- matchit(MitralValveProcedure_RepaPepl ~ Age + Gender + BMI + PMHx_HTN+ Diabetes_col+ NYHA34_12+ PrevPCI_col+ CardiacSurgery_col+ PMHx_PulmonaryDx+ Smoking_Stat+ PMHx_CVATIA+ Canadian_Score4+ Critical_Preop+ PulmonHTN_bin+ AF+ LMS_Dx+ Extent_of_CorVessDx+ Extracardiac_Arteriopathy+ Recent_MI+ LVEF_Cat+ Op_Urgency_col+ CreatinineGT200+ CABG+ Tricuspid_Procedure_Bin+ NativeMitralPathology, data = Data_PS_Mort,  method = "genetic", replace = T, caliper = 0.2, pop.size = 100, ratio = 1)
+match.it <- matchit(MitralValveProcedure_RepaPepl ~ Age + Gender + BMI + PMHx_HTN+ Diabetes_col+ Dyspnoea_Status + PrevPCI_col+ CardiacSurgery_col+ PMHx_PulmonaryDx+ Smoking_Stat+ PMHx_CVATIA+ Canadian_Score4+ Critical_Preop+ PulmonHTN_bin+ AF+ LMS_Dx+ Extent_of_CorVessDx+ Extracardiac_Arteriopathy+ Recent_MI+ LVEF_Cat+ Op_Urgency_col+ CreatinineGT200+ CABG+ Tricuspid_Procedure_Bin+ NativeMitralPathology + Logistic_EUROScore + AF_Ablation + LAA_Closure + Minimitral, data = Data_PS_Mort,  method = "genetic", replace = T, caliper = 0.2, pop.size = 100, ratio = 1)
 a <- summary(match.it)
 
 #create new dataframe without unmatched
@@ -298,7 +312,7 @@ tbl1 <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl")
 
 gt::gtsave(tbl1, "Tables/TableOne_SMD_PS.html")
 
-tbl2b <- tbl_summary(df.match_All[,-(1:2)], by = "MitralValveProcedure_RepaPepl") %>%
+tbl2b <- tbl_summary(Data_PS_Repair[,-(1:2)], by = "Minimitral") %>%
   add_p() %>%
   bold_p()
 
@@ -322,7 +336,7 @@ gt::gtsave(Tbl1, "Tables/TableOne_Combined_SMD.html")
 gt::gtsave(Tbl2, "Tables/TableOne_Combined_P.html")
 ```
 
-```{r CoxRegression UV Weighted}
+```{r CoxRegression UV Mortality}
 UniLevel <- map(df.match_All, ~nlevels(.x)) %>% as.data.frame() %>% t %>% as.data.frame() %>% filter(V1==1) %>% rownames() %>% dput() 
 
 Data_PS <- df.match_All
@@ -341,8 +355,29 @@ UV_T <- gtsummary::tbl_uvregression(Data_PS,
 gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV.html"))
 ```
 
+```{r CoxRegression UV Mortality}
+UniLevel <- map(df.match_All, ~nlevels(.x)) %>% as.data.frame() %>% t %>% as.data.frame() %>% filter(V1==1) %>% rownames() %>% dput() 
+
+Data_PS <- df.match_All
+
+UV_T <- gtsummary::tbl_uvregression(Data_PS,
+                 method = survival::coxph,
+               #  method.args = list(weights = weights),
+                 y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
+                 tidy_fun = broom.helpers::tidy_parameters,
+                 exponentiate = T,
+                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
+  modify_header(label = paste0("Mortality (Weighted_Univariate)")) %>%
+  bold_p() %>%
+  as_gt()
+
+gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV.html"))
+```
+
+
+
 ```{r KM Curve (weighted)}
-fit1<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS, weights = weights)
+fit1<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Nini, weights = weights)
 plot1 <- ggsurvplot(fit1, pval = TRUE, conf.int = TRUE,
            risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", legend.labs = c("Repair", "Replacement"), xlab = "Years Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
 
@@ -352,56 +387,10 @@ plot2 <- ggsurvplot(fit2, pval = TRUE, conf.int = TRUE,
            legend.labs = c("Degenerative", "Functional", "Ischaemic"), 
            xlab = "Years Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8", "#038271"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
 
-Data_PS_Repair <- Data_PS %>% filter(MitralValveProcedure_RepaPepl == "Repair")
-
-Data_PS_Replace <- Data_PS %>% filter(MitralValveProcedure_RepaPepl == "Replacement")
-
-fit3<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ NativeMitralPathology, data = Data_PS_Repair, weights = weights)
-plot3 <- ggsurvplot(fit3, pval = TRUE, conf.int = TRUE,
-           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
-           legend.labs = c("Degenerative", "Functional", "Ischaemic"), 
-           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Repair)", palette = c("#fba30c", "#0077b8", "#038271"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
-
-fit4<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ NativeMitralPathology, data = Data_PS_Replace, weights = weights)
-plot4 <- ggsurvplot(fit4, pval = TRUE, conf.int = TRUE,
-           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
-           legend.labs = c("Degenerative", "Functional", "Ischaemic"), 
-           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Replacement)", palette = c("#fba30c", "#0077b8", "#038271"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
-
-Data_PS_Degen <- Data_PS %>% filter(NativeMitralPathology == "Degenerative")
-
-Data_PS_Ischae <- Data_PS %>% filter(NativeMitralPathology == "Ischaemic")
-
-Data_PS_Funct <- Data_PS %>% filter(NativeMitralPathology == "Functional regurgitation")
-
-fit5<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Degen, weights = weights)
-plot5 <- ggsurvplot(fit5, pval = TRUE, conf.int = TRUE,
-           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
-           legend.labs = c("Repair", "Replacement"), 
-           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Degenerative)", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
-
-fit6 <- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Ischae, weights = weights)
-plot6 <- ggsurvplot(fit6, pval = TRUE, conf.int = TRUE,
-           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
-           legend.labs = c("Repair", "Replacement"), 
-           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Ischaemic)", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
-
-fit7<- survfit(Surv(time = Mortality_FU, event = as.numeric(Dead)) ~ MitralValveProcedure_RepaPepl, data = Data_PS_Funct, weights = weights)
-plot7 <- ggsurvplot(fit7, pval = TRUE, conf.int = TRUE,
-           risk.table = T, risk.table.y.text.col = TRUE, xscale="d_y", 
-           legend.labs = c("Repair", "Replacement"), 
-           xlab = "Years Since Index Procedure", ylab = "Survival Probability (Functional)", palette = c("#fba30c", "#0077b8"), theme = "lancet", break.time.by	= 1826.25, pval.coord = c(0,0.3), legend.title = "")
-
-
 cairo_pdf(filename = "KM_Weighted/KM_Weighted.pdf",
          width = 6.2, height = 6, onefile = T)
 print(plot1, newpage = F)
 print(plot2)
-print(plot3)
-print(plot4)
-print(plot5)
-print(plot6)
-print(plot7)
 dev.off()
 
 ```
