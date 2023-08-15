@@ -45,7 +45,7 @@ Data <- S_Data %>%
     DateTime_LastCatheter = as.Date(`Date of last catheterisation`, format = "%d-%b-%y"),
     Diabetes_Mx = factor(`Diabetes management`, labels = c("Not diabetic", "Insulin", "Diet", "Oral therapy")),
     Dyspnoea_Status = factor(`Dyspnoea status pre-surgery`),
-    LVEF_Cat = factor(`Ejection fraction category ordinal`, levels = 1:4, labels = c("Poor (LVEF 21-30%)", "Good (LVEF >50%)", "Moderate (LVEF 31-50%)", "Very Poor (LVEF <21%)")),
+    LVEF_Cat = factor(`Ejection fraction category`),
     Extent_of_CorVessDx = factor(`Extent of coronary vessel disease`),
     Extracardiac_Arteriopathy = factor(`Extracardiac arteriopathy`, levels = 0:1, labels = c("No", "Yes")),
     Gender = factor(Gender),
@@ -442,3 +442,8 @@ print(plot1, newpage = F)
 dev.off()
 
 ```
+
+```{r}
+write.csv(Data_PS, "Sliced.csv")
+```
+
