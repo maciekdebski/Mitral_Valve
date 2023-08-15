@@ -354,13 +354,14 @@ Data_PS <- df.match_All
 UV_T <- gtsummary::tbl_uvregression(Data_PS,
                  method = survival::coxph,
                #  method.args = list(weights = weights),
-                 y = survival::Surv(time = Mortality_FU90, event = as.numeric(Dead)),
+                 y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
                  tidy_fun = broom.helpers::tidy_parameters,
                  exponentiate = T,
-                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
+                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights, -Mortality_30, -Mortality_90, -Mortality_FU30, -Mortality_FU90)) %>%
   modify_header(label = paste0("Mortality (Weighted_Univariate)")) %>%
   bold_p() %>%
   as_gt()
+
 
 gt::gtsave(UV_T, paste0("UV_Tables/WeightedCox_UV.html"))
 ```
@@ -373,10 +374,10 @@ Data_PS <- df.match_All
 UV_T <- gtsummary::tbl_uvregression(Data_PS,
                  method = survival::coxph,
                #  method.args = list(weights = weights),
-                 y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
+                 y = survival::Surv(time = Mortality_FU90, event = as.numeric(Mortality90)),
                  tidy_fun = broom.helpers::tidy_parameters,
                  exponentiate = T,
-                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
+                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights, -Mortality30, -Mortality90, -Mortality_FU30, -Mortality_FU90)) %>%
   modify_header(label = paste0("Mortality (Weighted_Univariate)")) %>%
   bold_p() %>%
   as_gt()
@@ -392,10 +393,10 @@ Data_PS <- df.match_All
 UV_T <- gtsummary::tbl_uvregression(Data_PS,
                  method = survival::coxph,
                #  method.args = list(weights = weights),
-                 y = survival::Surv(time = Mortality_FU, event = as.numeric(Dead)),
+                 y = survival::Surv(time = Mortality_FU30, event = as.numeric(Mortality30)),
                  tidy_fun = broom.helpers::tidy_parameters,
                  exponentiate = T,
-                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights)) %>%
+                 include = c(-id, -subclass, -ID, -all_of(UniLevel), -Dead, -Mortality_FU, -MitralValvePathology, -weights, -Mortality30, -Mortality90, -Mortality_FU30, -Mortality_FU90)) %>%
   modify_header(label = paste0("Mortality (Weighted_Univariate)")) %>%
   bold_p() %>%
   as_gt()
@@ -432,7 +433,7 @@ dev.off()
 ```
 
 ```{r KM Curve (30)}
-fit1<- survfit(Surv(time = Mortality_FU30, event = as.numeric(Mortality_30)) ~ MitralValveProcedure_RepaPepl, data = Data_PS, weights = weights)
+fit1<- survfit(Surv(time = Mortality_FU30, event = as.numeric(Mortality_30)) ~ MitralValveProcedure_RepaPepl, data = Data_PS)
 plot1 <- ggsurvplot(fit1, pval = TRUE, conf.int = TRUE,
            risk.table = T, risk.table.y.text.col = TRUE, legend.labs = c("Repair", "Replacement"), xlab = "Days Since Index Procedure", ylab = "Survival Probability", palette = c("#fba30c", "#0077b8"), theme = "lancet", pval.coord = c(0,0.925), legend.title = "", break.time.by	= 5, ylim=c(0.9, 1))
 
